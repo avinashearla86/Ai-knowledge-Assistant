@@ -1,0 +1,296 @@
+/* DocumentList.module.css */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* --- TABS --- */
+.tabs {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid #dadce0;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.tab {
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #5f6368;
+  cursor: pointer;
+  padding: 12px 12px;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.tab:hover {
+  color: #202124;
+  background-color: #f1f3f4;
+  border-radius: 4px 4px 0 0;
+}
+
+.activeTab {
+  color: #1a73e8; /* Google Blue */
+}
+
+.activeTab::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #1a73e8; /* Blue underline */
+  border-radius: 3px 3px 0 0;
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #202124;
+  margin: 0 0 12px 4px;
+}
+
+/* --- GRID (Recent & Starred) --- */
+.gridContainer {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* --- CARD STYLES --- */
+.card {
+  background-color: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start; 
+  gap: 12px;
+  min-width: 0; 
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+  border-color: transparent;
+}
+
+.cardIcon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.cardContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardTitle {
+  font-weight: 500;
+  color: #3c4043;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  display: block;
+}
+
+.cardMeta {
+  font-size: 0.75rem;
+  color: #5f6368;
+}
+
+.cardStarBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #dadce0; /* Inactive Grey */
+  padding: 0;
+  margin-left: auto;
+}
+
+.cardStarBtn:hover {
+  color: #fbbc04; /* Google Yellow */
+}
+
+/* --- LIST ROW STYLES --- */
+.row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f3f4;
+  border-radius: 4px;
+}
+
+.row:hover {
+  background-color: #f1f3f4; /* Hover Grey */
+}
+
+.starBtn {
+  background: none;
+  border: none;
+  color: #dadce0;
+  cursor: pointer;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.starBtn:hover { color: #fbbc04; }
+.starred { color: #fbbc04 !important; }
+
+.info {
+  flex: 1;
+  min-width: 0;
+  padding-left: 8px;
+}
+
+.nameWrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filename {
+  font-weight: 500;
+  color: #3c4043;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  font-size: 0.75rem;
+  color: #5f6368;
+  margin-top: 2px;
+}
+
+/* Edit Inputs */
+.editWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.editInput {
+  flex: 1;
+  padding: 6px 8px;
+  border: 2px solid #1a73e8; /* Blue focus */
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #202124;
+}
+
+.editInput:focus {
+  outline: none;
+}
+
+.saveActionBtn {
+  background-color: #1a73e8; /* Blue */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cancelActionBtn {
+  background-color: transparent;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.row:hover .actions {
+  opacity: 1;
+}
+
+.iconBtn {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-radius: 50%;
+  color: #5f6368;
+  cursor: pointer;
+  display: flex;
+  transition: background-color 0.15s;
+}
+
+.iconBtn:hover {
+  background-color: #e8f0fe; /* Light Blue hover */
+  color: #1a73e8;
+}
+
+.deleteBtn:hover {
+  background-color: #fce8e6; /* Light Red hover */
+  color: #d93025; /* Google Red */
+}
+
+.restoreBtn {
+  background-color: transparent;
+  color: #1a73e8;
+  border: none;
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+
+.restoreBtn:hover {
+  background-color: #e8f0fe;
+}
+
+.empty {
+  padding: 40px;
+  text-align: center;
+  color: #5f6368;
+  font-size: 0.9rem;
+}
+
+.loading {
+  padding: 30px;
+  text-align: center;
+  color: #5f6368;
+}

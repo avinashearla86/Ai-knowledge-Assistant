@@ -15,6 +15,25 @@ def get_documents(db: Session, skip: int = 0, limit: int = 100) -> List[models.D
 def get_document(db: Session, document_id: int) -> models.Document:
     return db.query(models.Document).filter(models.Document.id == document_id).first()
 
+def get_documents(db: Session, skip: int = 0, limit: int = 100) -> List[models.Document]:
+    # We return ALL documents now so frontend can filter by tabs
+    return db.query(models.Document).offset(skip).limit(limit).all()
+
+def update_document(db: Session, document_id: int, updates: schemas.DocumentUpdate) -> models.Document:
+    db_document = get_document(db, document_id)
+    if not db_document:
+        return None
+    
+    # Update only provided fields
+    update_data = updates.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_document, key, value)
+    
+    db.add(db_document)
+    db.commit()
+    db.refresh(db_document)
+    return db_document
+
 def delete_document(db: Session, document_id: int) -> bool:
     document = get_document(db, document_id)
     if document:
@@ -57,7 +76,11 @@ def save_chat_history(
     db.refresh(db_chat)
     return db_chat
 
-def get_chat_history(db: Session, limit: int = 50) -> List[models.ChatHistory]:
+def get_chat_history(db: Session, limit: int = 1000) -> List[models.ChatHistory]:
+    """
+    Changed limit from 50 to 1000 to ensure all older messages 
+    are retrieved and displayed in the frontend.
+    """
     return db.query(models.ChatHistory).order_by(
         models.ChatHistory.created_at.desc()
     ).limit(limit).all()

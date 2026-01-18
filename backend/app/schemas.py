@@ -10,10 +10,19 @@ class DocumentBase(BaseModel):
 class DocumentCreate(DocumentBase):
     content: str
 
+class DocumentUpdate(BaseModel):
+    filename: Optional[str] = None
+    is_starred: Optional[bool] = None
+    is_deleted: Optional[bool] = None
+
+
 class DocumentResponse(DocumentBase):
     id: int
     upload_date: datetime
     chunk_count: int = 0
+    # FIX: Make these optional with default=False to prevent 500 Errors
+    is_starred: bool = False
+    is_deleted: bool = False
     
     class Config:
         from_attributes = True

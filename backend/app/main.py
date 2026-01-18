@@ -86,7 +86,9 @@ async def upload_file(
             file_type=document.file_type,
             file_size=document.file_size,
             upload_date=document.upload_date,
-            chunk_count=len(chunks)
+            chunk_count=len(chunks),
+            is_starred=document.is_starred,
+            is_deleted=document.is_deleted
         )
         
     except Exception as e:
@@ -103,82 +105,124 @@ async def get_documents(db: Session = Depends(get_db)):
             file_type=doc.file_type,
             file_size=doc.file_size,
             upload_date=doc.upload_date,
-            chunk_count=len(doc.chunks)
+            chunk_count=len(doc.chunks),
+            is_starred=doc.is_starred,
+            is_deleted=doc.is_deleted
         )
         for doc in documents
     ]
 
 @app.delete("/api/documents/{document_id}")
 async def delete_document(document_id: int, db: Session = Depends(get_db)):
-    """Delete a document"""
+    """Delete a document permanently"""
     success = crud.delete_document(db, document_id)
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document deleted successfully"}
 
+@app.patch("/api/documents/{document_id}", response_model=schemas.DocumentResponse)
+async def update_document(
+    document_id: int, 
+    updates: schemas.DocumentUpdate, 
+    db: Session = Depends(get_db)
+):
+    """Rename, Star, or Soft Delete/Restore a document"""
+    document = crud.update_document(db, document_id, updates)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return schemas.DocumentResponse(
+        id=document.id,
+        filename=document.filename,
+        file_type=document.file_type,
+        file_size=document.file_size,
+        upload_date=document.upload_date,
+        chunk_count=len(document.chunks),
+        is_starred=document.is_starred,
+        is_deleted=document.is_deleted
+    )
+
 @app.post("/api/chat", response_model=schemas.ChatResponse)
 async def chat(request: schemas.ChatRequest, db: Session = Depends(get_db)):
-    """Handle chat with RAG using Google Gemini - ONLY uses uploaded documents"""
+    """Handle chat with RAG - ONLY uses ACTIVE uploaded documents"""
     try:
-        # Check if there are any documents
-        all_documents = crud.get_documents(db)
-        if not all_documents:
+        # 1. Fetch ALL documents from DB
+        raw_documents = crud.get_documents(db)
+        
+        # 2. STRICT FILTER: Create a list of only ACTIVE (non-deleted) documents
+        active_documents = [
+            doc for doc in raw_documents 
+            if not doc.is_deleted
+        ]
+        
+        if not active_documents:
             return {
                 "user_message": request.message,
-                "assistant_message": "Please upload documents first. I can only answer questions based on your uploaded documents.",
+                "assistant_message": "You have no active documents. Please upload or restore documents to chat.",
                 "sources": []
             }
         
-        # Create embedding for query
+        # 3. Create embedding for query
         query_embedding = utils.create_embedding(request.message)
         
-        # Search similar chunks - increased limit for better coverage
-        similar_chunks = utils.cosine_similarity_search(query_embedding, db, limit=15)
+        # 4. Search similar chunks (The SQL in utils.py strictly excludes deleted docs)
+        similar_chunks = utils.cosine_similarity_search(query_embedding, db, limit=20)
         
-        # Build context with very low similarity threshold to catch more results
+        # 5. Build context
         context = ""
         sources = []
         
         if similar_chunks:
-            # Use even lower threshold (0.01) to include more chunks
-            relevant_chunks = [chunk for chunk in similar_chunks if chunk.similarity > 0.01]
+            # Filter for relevance
+            relevant_chunks = [chunk for chunk in similar_chunks if chunk.similarity > 0.005]
             
             if relevant_chunks:
-                context = "Context from your uploaded documents:\n\n"
-                # Use top 8 most relevant chunks for better coverage
-                for chunk in relevant_chunks[:8]:
+                context = f"You have exactly {len(active_documents)} active documents available.\n"
+                context += "Context from your active documents:\n\n"
+                
+                for chunk in relevant_chunks[:10]:
                     doc = crud.get_document(db, chunk.document_id)
-                    context += f"From '{doc.filename}':\n{chunk.chunk_text}\n\n"
-                    if doc.filename not in sources:
-                        sources.append(doc.filename)
+                    # Double-check logic to be 100% safe
+                    if doc and not doc.is_deleted:
+                        context += f"From '{doc.filename}':\n{chunk.chunk_text}\n\n"
+                        if doc.filename not in sources:
+                            sources.append(doc.filename)
         
-        # If still no relevant chunks found, use ALL document content
+        # 6. Fallback: If no chunks match, provide a summary of ALL ACTIVE docs
         if not context:
-            context = "Since no specific match was found, here is content from all your uploaded documents:\n\n"
-            for doc in all_documents[:3]:  # Use first 3 documents
-                context += f"From '{doc.filename}':\n{doc.content}\n\n"
+            context = f"You have exactly {len(active_documents)} active documents:\n"
+            # List them explicitly so the AI knows the count and names
+            for i, doc in enumerate(active_documents):
+                context += f"{i+1}. {doc.filename}\n"
+            
+            context += "\nHere is a preview of their content:\n"
+            for doc in active_documents:
+                # Add first chunk as preview
+                if doc.chunks:
+                    chunk_preview = doc.chunks[0].chunk_text[:300] # Limit preview size
+                    context += f"File '{doc.filename}': {chunk_preview}...\n"
                 if doc.filename not in sources:
                     sources.append(doc.filename)
         
-        # Create strict prompt for Gemini - MUST use only provided context
-        prompt = f"""You are a helpful AI assistant that MUST answer questions ONLY based on the user's uploaded documents.
+        # 7. Strict Prompt for Gemini
+        prompt = f"""You are a helpful AI assistant. Answer questions ONLY based on the user's ACTIVE documents.
 
-IMPORTANT RULES:
-- You can ONLY use information from the context provided below
-- Do NOT use any external knowledge or general information
-- If the context doesn't contain enough information to answer the question, say: "I cannot find specific information about that in your uploaded documents. Please upload more relevant documents or rephrase your question."
-- Always cite which documents you're referencing
+RULES:
+- The user currently has exactly {len(active_documents)} active documents.
+- Use ONLY the provided context below.
+- Do NOT mention or count documents that are not in this list.
+- If asked to list documents, list ONLY the {len(active_documents)} active ones.
 
+CONTEXT:
 {context}
 
 User Question: {request.message}
 
-Answer based ONLY on the context above:"""
+Answer:"""
         
-        # Get response from Gemini
+        # Get response
         assistant_message = utils.generate_response_with_gemini(prompt)
         
-        # Save to chat history
+        # Save history
         crud.save_chat_history(
             db,
             user_message=request.message,

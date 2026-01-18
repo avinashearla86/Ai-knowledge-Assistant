@@ -19,13 +19,13 @@ def extract_text_from_pdf(file_path: str) -> str:
     """Extract text from PDF file using PyMuPDF (fitz)"""
     text = ""
     try:
-        doc = fitz.open(file_path)  # Open the document
-        for page in doc:  # Iterate through each page
-            text += page.get_text()  # Get text from the page
+        doc = fitz.open(file_path)
+        for page in doc:
+            text += page.get_text()
         doc.close()
     except Exception as e:
         print(f"Error extracting text from PDF {file_path}: {e}")
-        return ""  # Return empty string on failure
+        return ""
     return text
 
 def extract_text_from_docx(file_path: str) -> str:
@@ -43,12 +43,13 @@ def extract_text_from_file(file_path: str, file_type: str) -> str:
     """Extract text based on file type"""
     if file_type == 'application/pdf':
         return extract_text_from_pdf(file_path)
-    elif file_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+    elif 'wordprocessingml' in file_type:
         return extract_text_from_docx(file_path)
-    elif file_type == 'text/plain':
+    elif 'text/plain' in file_type:
         return extract_text_from_txt(file_path)
     else:
-        raise ValueError(f"Unsupported file type: {file_type}")
+        # Return empty string for unsupported types instead of crashing
+        return ""
 
 def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> List[str]:
     """Split text into chunks using LangChain's text splitter"""
@@ -58,27 +59,31 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
         length_function=len,
         separators=["\n\n", "\n", " ", ""]
     )
-    chunks = text_splitter.split_text(text)
-    return chunks
+    return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
-    """Create embedding using sentence-transformers (FREE & LOCAL!)"""
+    """Create embedding using sentence-transformers"""
     embedding = embedding_model.encode(text)
     return embedding.tolist()
 
 def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
-    """Search for similar chunks using cosine similarity"""
+    """
+    Search for similar chunks using cosine similarity.
+    CRITICAL: This performs a JOIN to exclude chunks from deleted documents.
+    """
     from sqlalchemy import text
-    from .models import DocumentChunk
     
     # Convert list to string format for pgvector
     embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
     
+    # Query joins document_chunks with documents to check is_deleted status
     query = text(f"""
-        SELECT id, document_id, chunk_text, chunk_index,
-               1 - (embedding <=> '{embedding_str}'::vector) as similarity
-        FROM document_chunks
-        ORDER BY embedding <=> '{embedding_str}'::vector
+        SELECT dc.id, dc.document_id, dc.chunk_text, dc.chunk_index,
+               1 - (dc.embedding <=> '{embedding_str}'::vector) as similarity
+        FROM document_chunks dc
+        JOIN documents d ON dc.document_id = d.id
+        WHERE (d.is_deleted IS FALSE OR d.is_deleted IS NULL)
+        ORDER BY dc.embedding <=> '{embedding_str}'::vector
         LIMIT {limit}
     """)
     

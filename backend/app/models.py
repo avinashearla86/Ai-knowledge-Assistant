@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, ARRAY
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, ARRAY,Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from pgvector.sqlalchemy import Vector
@@ -13,6 +13,10 @@ class Document(Base):
     file_size = Column(Integer)
     upload_date = Column(DateTime, default=datetime.utcnow)
     content = Column(Text)
+    
+    # NEW FIELDS
+    is_starred = Column(Boolean, default=False)
+    is_deleted = Column(Boolean, default=False)
     
     chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
 

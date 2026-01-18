@@ -1,3 +1,4 @@
+Set-Content .gitignore @"
 # Logs
 logs
 *.log
@@ -7,12 +8,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependency directories
+node_modules/
+dist/
+dist-ssr/
 *.local
 
-# Editor directories and files
+# Editor directories
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -26,16 +28,15 @@ dist-ssr
 # Python virtual environment
 backend/venv/
 venv/
+env/
 
-# Environment variables
+# Environment variables (Sensitive Data)
 backend/.env
 .env
+frontend/.env
 
-
-# Python cache files
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
-
-frontend/.env
-.env
+"@

@@ -1,72 +1,55 @@
+/* Chat.module.css */
+
 .container {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+  background-color: #f8fafc; /* Very light slate background for contrast */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-.header {
-  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-  color: white;
-  padding: 1rem;
+/* --- MESSAGE AREA --- */
+.messagesArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem 2.5rem;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 1.5rem; /* Space between messages */
+  scroll-behavior: smooth;
 }
 
-.headerContent h2 {
-  font-size: 1.25rem;
-  font-weight: bold;
-  margin: 0 0 0.25rem 0;
-}
-
-.headerContent p {
-  font-size: 0.875rem;
-  opacity: 0.9;
-  margin: 0;
+/* Clear Chat Button (Floating Top Right) */
+.clearButtonWrapper {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 1rem;
 }
 
 .clearButton {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
   padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  color: white;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
 .clearButton:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background-color: #fee2e2;
+  color: #ef4444;
+  border-color: #fecaca;
 }
 
-.messagesContainer {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem;
-  background-color: #f9fafb;
-}
-
-.emptyState {
-  text-align: center;
-  color: #6b7280;
-  margin-top: 5rem;
-}
-
-.emptyState p:first-child {
-  font-size: 1.125rem;
-  margin: 1rem 0 0.5rem 0;
-}
-
-.emptyState p:last-child {
-  font-size: 0.875rem;
-}
-
+/* --- MESSAGE BUBBLES --- */
 .messageWrapper {
   display: flex;
-  margin-bottom: 1rem;
+  width: 100%;
 }
 
 .messageWrapperUser {
@@ -77,123 +60,238 @@
   justify-content: flex-start;
 }
 
-.message {
-  max-width: 48rem;
-  border-radius: 0.5rem;
-  padding: 1rem;
+.messageBubble {
+  max-width: 80%;
+  padding: 1rem 1.5rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-.messageUser {
-  background-color: #2563eb;
-  color: white;
+/* User Bubble: Vibrant Indigo */
+.messageBubbleUser {
+  background-color: #4f46e5; /* Indigo 600 */
+  color: #ffffff;
+  border-radius: 1.25rem 1.25rem 0.25rem 1.25rem; /* Pointy bottom-right */
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 }
 
-.messageAssistant {
-  background-color: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+/* Bot Bubble: Clean White Card */
+.messageBubbleAssistant {
+  background-color: #ffffff;
+  color: #1e293b; /* Slate 800 */
+  border: 1px solid #e2e8f0;
+  border-radius: 1.25rem 1.25rem 1.25rem 0.25rem; /* Pointy bottom-left */
 }
 
-.messageContent {
-  white-space: pre-wrap;
-  margin: 0;
+/* --- MARKDOWN STYLES --- */
+.markdownContent p {
+  margin: 0 0 0.75rem 0;
 }
 
-.sources {
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid #e5e7eb;
-  font-size: 0.875rem;
-  color: #6b7280;
+.markdownContent p:last-child {
+  margin-bottom: 0;
 }
 
-.sources p {
-  font-weight: 600;
-  margin: 0 0 0.25rem 0;
+.markdownContent strong {
+  font-weight: 700;
+  color: inherit; /* Inherit color (white for user, dark for bot) */
 }
 
-.sources ul {
-  margin: 0;
+/* Lists */
+.markdownList {
+  margin: 0.5rem 0 1rem 0;
   padding-left: 1.5rem;
 }
 
+.markdownListItem {
+  margin-bottom: 0.25rem;
+}
+
+/* Code Blocks */
+.inlineCode {
+  font-family: 'Menlo', 'Monaco', monospace;
+  font-size: 0.85em;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+}
+
+/* User Code: Semi-transparent white */
+.messageBubbleUser .inlineCode {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+/* Bot Code: Light gray */
+.messageBubbleAssistant .inlineCode {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+}
+
+.blockCode {
+  display: block;
+  font-family: 'Menlo', monospace;
+  font-size: 0.85em;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+  background-color: #1e293b; /* Dark background for blocks */
+  color: #e2e8f0;
+}
+
+.markdownLink {
+  text-decoration: underline;
+  color: inherit;
+  font-weight: 500;
+}
+
+/* Sources Area */
+.sources {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.8rem;
+  color: #059669; /* Emerald Green */
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* --- LOADING DOTS --- */
 .loadingWrapper {
   display: flex;
   justify-content: flex-start;
-  margin-bottom: 1rem;
+  padding-left: 1rem;
 }
 
-.loadingMessage {
-  background-color: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border-radius: 0.5rem;
-  padding: 1rem;
+.loadingBubble {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem 1.25rem;
+  border-radius: 20px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
-.spinner {
-  width: 1.25rem;
-  height: 1.25rem;
-  border: 2px solid #e5e7eb;
-  border-top-color: #2563eb;
+.typingDot {
+  width: 8px;
+  height: 8px;
+  background-color: #94a3b8;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: bounce 1.4s infinite ease-in-out both;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.typingDot:nth-child(1) { animation-delay: -0.32s; }
+.typingDot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
 }
 
-.inputContainer {
-  background-color: white;
-  border-top: 1px solid #e5e7eb;
-  padding: 1rem;
+/* --- INPUT AREA (The Box) --- */
+.inputArea {
+  padding: 1.5rem 2.5rem 2.5rem 2.5rem;
+  background-color: #f8fafc;
+  flex-shrink: 0;
 }
 
 .inputWrapper {
-  max-width: 64rem;
-  margin: 0 auto;
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  align-items: center;
+  background: #ffffff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 9999px; /* Full capsule shape */
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.inputWrapper:focus-within {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  transform: translateY(-1px);
 }
 
 .input {
   flex: 1;
   padding: 0.75rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
   font-size: 1rem;
   outline: none;
-  transition: border-color 0.2s;
+  color: #0f172a;
 }
 
-.input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.input:disabled {
-  background-color: #f3f4f6;
-  cursor: not-allowed;
+.input::placeholder {
+  color: #94a3b8;
 }
 
 .sendButton {
-  background-color: #2563eb;
+  background-color: #4f46e5;
   color: white;
-  padding: 0.75rem 1.5rem;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
   border: none;
-  border-radius: 0.5rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .sendButton:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: #4338ca;
+  transform: scale(1.05);
 }
 
 .sendButton:disabled {
-  background-color: #d1d5db;
-  cursor: not-allowed;
+  background-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: default;
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #64748b;
+  text-align: center;
+  margin-top: -2rem; /* Visual offset */
+}
+
+.emptyIcon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  background-color: #eef2ff;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.emptyTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.emptySubtitle {
+  font-size: 1rem;
+  max-width: 300px;
+  line-height: 1.5;
 }

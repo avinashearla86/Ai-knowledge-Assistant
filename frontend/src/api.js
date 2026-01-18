@@ -17,6 +17,11 @@ export const getDocuments = async () => {
   return response.data;
 };
 
+export const updateDocument = async (id, updates) => {
+  const response = await axios.patch(`${API_URL}/api/documents/${id}`, updates);
+  return response.data;
+};
+
 export const deleteDocument = async (id) => {
   const response = await axios.delete(`${API_URL}/api/documents/${id}`);
   return response.data;
