@@ -60,17 +60,23 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
-    """Create embedding using Gemini API (text-embedding-004)"""
-    try:
-        response = client.models.embed_content(
-            model='text-embedding-004',
-            contents=text
-        )
-        return response.embeddings[0].values
-    except Exception as e:
-        print(f"Embedding error: {e}")
-        # Fallback to zero vector (768 dimensions for text-embedding-004)
-        return [0.0] * 768
+    """Create embedding using Gemini API with fallback to stable models"""
+    # Fix for issue #2: Use 'models/' prefix and provide a fallback
+    models_to_try = ['models/text-embedding-004', 'models/embedding-001']
+    
+    for model_name in models_to_try:
+        try:
+            response = client.models.embed_content(
+                model=model_name,
+                contents=text
+            )
+            return response.embeddings[0].values
+        except Exception as e:
+            print(f"Failed to use {model_name}: {e}")
+            continue
+            
+    print("All embedding models failed. Returning zero vector.")
+    return [0.0] * 768
 
 def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     """Search for similar chunks using cosine similarity"""
@@ -92,9 +98,25 @@ def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     return results
 
 def generate_response_with_gemini(prompt: str) -> str:
-    """Generate response using Google Gemini (new SDK)"""
-    response = client.models.generate_content(
-        model='gemini-2.0-flash',
-        contents=prompt
-    )
-    return response.text
+    """Generate response with fallback to manage 429 RESOURCE_EXHAUSTED errors"""
+    # Fix for issue #3: Switch models if quota is hit on one
+    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            # Check specifically for rate limiting/quota errors
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                print(f"Quota exhausted for {model_name}, trying next model...")
+                continue
+            
+            print(f"Gemini error with {model_name}: {e}")
+            # If it's not a quota error, we re-raise it
+            raise e
+            
+    return "I'm currently receiving too many requests. Please try again in a few seconds."
