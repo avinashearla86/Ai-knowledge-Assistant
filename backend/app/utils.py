@@ -60,9 +60,10 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
-    """Create embedding using Gemini API with fallback to stable models"""
-    # Fix for issue #2: Use 'models/' prefix and provide a fallback
-    models_to_try = ['models/text-embedding-004', 'models/embedding-001']
+    """Create embedding using updated 2026 model names"""
+    # 'gemini-embedding-001' is the stable standard for 2026
+    # 'text-embedding-004' is often moved or deprecated in v1beta
+    models_to_try = ['models/gemini-embedding-001', 'models/text-embedding-004']
     
     for model_name in models_to_try:
         try:
@@ -98,9 +99,10 @@ def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     return results
 
 def generate_response_with_gemini(prompt: str) -> str:
-    """Generate response with fallback to manage 429 RESOURCE_EXHAUSTED errors"""
-    # Fix for issue #3: Switch models if quota is hit on one
-    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    """Generate response using latest 2026 models with quota fallback"""
+    # For 2026, 'gemini-2.5-flash' and 'gemini-2.5-flash-lite' are 
+    # the recommended stable models for free tier users
+    models_to_try = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
     
     for model_name in models_to_try:
         try:
@@ -110,13 +112,14 @@ def generate_response_with_gemini(prompt: str) -> str:
             )
             return response.text
         except Exception as e:
-            # Check specifically for rate limiting/quota errors
             if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                print(f"Quota exhausted for {model_name}, trying next model...")
+                print(f"Quota exhausted for {model_name}, trying next...")
+                continue
+            # If we hit a 404, the model ID is likely wrong for this API version
+            if "404" in str(e):
+                print(f"Model {model_name} not found, skipping...")
                 continue
             
-            print(f"Gemini error with {model_name}: {e}")
-            # If it's not a quota error, we re-raise it
             raise e
             
-    return "I'm currently receiving too many requests. Please try again in a few seconds."
+    return "I am currently at my free tier capacity. Please wait a few minutes before trying again."
