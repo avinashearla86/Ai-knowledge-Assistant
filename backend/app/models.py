@@ -27,7 +27,7 @@ class DocumentChunk(Base):
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"))
     chunk_text = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)
-    embedding = Column(Vector(384))  # sentence-transformers dimension
+    embedding = Column(Vector(768))  # sentence-transformers dimension
     created_at = Column(DateTime, default=datetime.utcnow)
     
     document = relationship("Document", back_populates="chunks")

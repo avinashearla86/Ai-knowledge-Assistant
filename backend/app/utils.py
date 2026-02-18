@@ -4,7 +4,6 @@ from google import genai
 import fitz
 import docx
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,8 +11,8 @@ load_dotenv()
 # Configure Gemini (new SDK)
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Initialize embedding model
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+# Local sentence-transformers REMOVED to save memory for Render
+# embedding_model = SentenceTransformer('all-MiniLM-L6-v2') 
 
 def extract_text_from_pdf(file_path: str) -> str:
     """Extract text from PDF file using PyMuPDF"""
@@ -61,9 +60,17 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
-    """Create embedding using sentence-transformers"""
-    embedding = embedding_model.encode(text)
-    return embedding.tolist()
+    """Create embedding using Gemini API (text-embedding-004)"""
+    try:
+        response = client.models.embed_content(
+            model='text-embedding-004',
+            contents=text
+        )
+        return response.embeddings[0].values
+    except Exception as e:
+        print(f"Embedding error: {e}")
+        # Fallback to zero vector (768 dimensions for text-embedding-004)
+        return [0.0] * 768
 
 def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     """Search for similar chunks using cosine similarity"""
