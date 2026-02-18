@@ -14,9 +14,9 @@ export default function App() {
       <Toaster 
         position="top-center" 
         toastOptions={{ 
-          duration: 3000,
+          duration: 4000,
           style: {
-            marginTop: '20px', // Adds a little spacing from the very top
+            marginTop: '20px',
           },
         }} 
       />
