@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 import os
 import shutil
 from typing import List
-import google.generativeai as genai
+# import google.generativeai as genai
 from dotenv import load_dotenv
 
 from . import models, schemas, crud, utils
@@ -27,7 +27,7 @@ app.add_middleware(
 )
 
 # Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Create upload directory
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
