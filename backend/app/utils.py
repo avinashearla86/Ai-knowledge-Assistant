@@ -1,7 +1,7 @@
 import os
 from typing import List
-import google.generativeai as genai
-import fitz  # PyMuPDF
+from google import genai
+import fitz
 import docx
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
@@ -9,14 +9,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Configure Gemini (new SDK)
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Initialize embedding model (free and runs locally!)
+# Initialize embedding model
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 def extract_text_from_pdf(file_path: str) -> str:
-    """Extract text from PDF file using PyMuPDF (fitz)"""
+    """Extract text from PDF file using PyMuPDF"""
     text = ""
     try:
         doc = fitz.open(file_path)
@@ -48,11 +48,10 @@ def extract_text_from_file(file_path: str, file_type: str) -> str:
     elif 'text/plain' in file_type:
         return extract_text_from_txt(file_path)
     else:
-        # Return empty string for unsupported types instead of crashing
         return ""
 
 def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> List[str]:
-    """Split text into chunks using LangChain's text splitter"""
+    """Split text into chunks"""
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -67,16 +66,11 @@ def create_embedding(text: str) -> List[float]:
     return embedding.tolist()
 
 def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
-    """
-    Search for similar chunks using cosine similarity.
-    CRITICAL: This performs a JOIN to exclude chunks from deleted documents.
-    """
+    """Search for similar chunks using cosine similarity"""
     from sqlalchemy import text
     
-    # Convert list to string format for pgvector
     embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
     
-    # Query joins document_chunks with documents to check is_deleted status
     query = text(f"""
         SELECT dc.id, dc.document_id, dc.chunk_text, dc.chunk_index,
                1 - (dc.embedding <=> '{embedding_str}'::vector) as similarity
@@ -91,8 +85,9 @@ def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     return results
 
 def generate_response_with_gemini(prompt: str) -> str:
-    """Generate response using Google Gemini"""
-    # Use gemini-2.5-flash (free and fast)
-    model = genai.GenerativeModel('models/gemini-2.5-flash')
-    response = model.generate_content(prompt)
+    """Generate response using Google Gemini (new SDK)"""
+    response = client.models.generate_content(
+        model='gemini-2.0-flash',
+        contents=prompt
+    )
     return response.text
