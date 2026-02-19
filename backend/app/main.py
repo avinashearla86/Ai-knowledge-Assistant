@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 import os
 import shutil
 from typing import List
-# import google.generativeai as genai
 from dotenv import load_dotenv
 
 from . import models, schemas, crud, utils
@@ -26,9 +25,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure Gemini
-# genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
 # Create upload directory
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -43,9 +39,11 @@ async def upload_file(
     db: Session = Depends(get_db)
 ):
     """Upload and process a file"""
+    document_id = None # Track ID so we can clean it up if it crashes
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    
     try:
         # Save file
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
@@ -59,9 +57,10 @@ async def upload_file(
                 filename=file.filename,
                 file_type=file.content_type,
                 file_size=os.path.getsize(file_path),
-                content=text[:1000]  # Store preview
+                content=text[:1000]
             )
         )
+        document_id = document.id # Document successfully in DB
         
         # Chunk text
         chunks = utils.chunk_text(text)
@@ -92,6 +91,11 @@ async def upload_file(
         )
         
     except Exception as e:
+        # 🚨 THE FIX: Delete the zombie document if chunks fail to generate
+        if document_id:
+            crud.delete_document(db, document_id)
+        if os.path.exists(file_path):
+            os.remove(file_path)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/documents", response_model=List[schemas.DocumentResponse])
@@ -145,14 +149,8 @@ async def update_document(
 async def chat(request: schemas.ChatRequest, db: Session = Depends(get_db)):
     """Handle chat with RAG - ONLY uses ACTIVE uploaded documents"""
     try:
-        # 1. Fetch ALL documents from DB
         raw_documents = crud.get_documents(db)
-        
-        # 2. STRICT FILTER: Create a list of only ACTIVE (non-deleted) documents
-        active_documents = [
-            doc for doc in raw_documents 
-            if not doc.is_deleted
-        ]
+        active_documents = [doc for doc in raw_documents if not doc.is_deleted]
         
         if not active_documents:
             return {
@@ -161,49 +159,36 @@ async def chat(request: schemas.ChatRequest, db: Session = Depends(get_db)):
                 "sources": []
             }
         
-        # 3. Create embedding for query
         query_embedding = utils.create_embedding(request.message)
-        
-        # 4. Search similar chunks (The SQL in utils.py strictly excludes deleted docs)
         similar_chunks = utils.cosine_similarity_search(query_embedding, db, limit=20)
         
-        # 5. Build context
         context = ""
         sources = []
         
         if similar_chunks:
-            # Filter for relevance
             relevant_chunks = [chunk for chunk in similar_chunks if chunk.similarity > 0.005]
-            
             if relevant_chunks:
                 context = f"You have exactly {len(active_documents)} active documents available.\n"
                 context += "Context from your active documents:\n\n"
-                
                 for chunk in relevant_chunks[:10]:
                     doc = crud.get_document(db, chunk.document_id)
-                    # Double-check logic to be 100% safe
                     if doc and not doc.is_deleted:
                         context += f"From '{doc.filename}':\n{chunk.chunk_text}\n\n"
                         if doc.filename not in sources:
                             sources.append(doc.filename)
         
-        # 6. Fallback: If no chunks match, provide a summary of ALL ACTIVE docs
         if not context:
             context = f"You have exactly {len(active_documents)} active documents:\n"
-            # List them explicitly so the AI knows the count and names
             for i, doc in enumerate(active_documents):
                 context += f"{i+1}. {doc.filename}\n"
-            
             context += "\nHere is a preview of their content:\n"
             for doc in active_documents:
-                # Add first chunk as preview
                 if doc.chunks:
-                    chunk_preview = doc.chunks[0].chunk_text[:300] # Limit preview size
+                    chunk_preview = doc.chunks[0].chunk_text[:300]
                     context += f"File '{doc.filename}': {chunk_preview}...\n"
                 if doc.filename not in sources:
                     sources.append(doc.filename)
         
-        # 7. Strict Prompt for Gemini
         prompt = f"""You are a helpful AI assistant. Answer questions ONLY based on the user's ACTIVE documents.
 
 RULES:
@@ -219,10 +204,8 @@ User Question: {request.message}
 
 Answer:"""
         
-        # Get response
         assistant_message = utils.generate_response_with_gemini(prompt)
         
-        # Save history
         crud.save_chat_history(
             db,
             user_message=request.message,

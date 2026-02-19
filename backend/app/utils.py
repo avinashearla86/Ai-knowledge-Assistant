@@ -1,6 +1,7 @@
 import os
 from typing import List
 from google import genai
+from google.genai import types  # REQUIRED for dimension truncation
 import fitz
 import docx
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -10,9 +11,6 @@ load_dotenv()
 
 # Configure Gemini (new SDK)
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
-# Local sentence-transformers REMOVED to save memory for Render
-# embedding_model = SentenceTransformer('all-MiniLM-L6-v2') 
 
 def extract_text_from_pdf(file_path: str) -> str:
     """Extract text from PDF file using PyMuPDF"""
@@ -60,45 +58,21 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
-    """Create embedding using Gemini REST API directly with verified 2026 models"""
-    import requests
-    
-    api_key = os.getenv("GEMINI_API_KEY")
-    
-    # In v1, the model name 'text-embedding-004' is supported, 
-    # but the URL structure is very specific. 
-    # We will also add a fallback to 'embedding-001'.
-    
-    models_to_try = ["text-embedding-004", "embedding-001"]
-    
-    for model_name in models_to_try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:embedContent?key={api_key}"
-        
-        payload = {
-            "model": f"models/{model_name}",
-            "content": {
-                "parts": [{"text": text}]
-            }
-        }
-        
-        try:
-            response = requests.post(url, json=payload, timeout=15)
-            
-            if response.status_code == 200:
-                embedding = response.json()["embedding"]["values"]
-                print(f"✅ Embedding success using {model_name}: {len(embedding)} dims")
-                return embedding
-            else:
-                print(f"⚠️ Failed with {model_name}: {response.status_code} - {response.text}")
-                continue # Try the next model in the list
-                
-        except Exception as e:
-            print(f"⚠️ Request error with {model_name}: {e}")
-            continue
-            
-    # If all models fail, we MUST raise an exception so the main.py knows 
-    # the upload failed and can clean up the database.
-    raise Exception("Critical Error: All Gemini embedding models failed.")
+    """Create embedding using the official google-genai SDK"""
+    try:
+        response = client.models.embed_content(
+            model='text-embedding-004',
+            contents=text,
+            # CRITICAL: Forces the output to 768 dimensions for Supabase
+            config=types.EmbedContentConfig(output_dimensionality=768)
+        )
+        embedding = response.embeddings[0].values
+        print(f"✅ Embedding success: {len(embedding)} dims")
+        return embedding
+    except Exception as e:
+        print(f"❌ Embedding failed: {e}")
+        # We MUST raise an error so main.py knows to cancel the upload
+        raise Exception(f"Embedding API failed: {str(e)}")
 
 def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     """Search for similar chunks using cosine similarity"""
@@ -120,10 +94,8 @@ def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     return results
 
 def generate_response_with_gemini(prompt: str) -> str:
-    """Generate response using latest 2026 models with quota fallback"""
-    # For 2026, 'gemini-2.5-flash' and 'gemini-2.5-flash-lite' are 
-    # the recommended stable models for free tier users
-    models_to_try = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
+    """Generate response using latest models with quota fallback"""
+    models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
     
     for model_name in models_to_try:
         try:
@@ -136,11 +108,9 @@ def generate_response_with_gemini(prompt: str) -> str:
             if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
                 print(f"Quota exhausted for {model_name}, trying next...")
                 continue
-            # If we hit a 404, the model ID is likely wrong for this API version
             if "404" in str(e):
                 print(f"Model {model_name} not found, skipping...")
                 continue
-            
             raise e
             
     return "I am currently at my free tier capacity. Please wait a few minutes before trying again."
