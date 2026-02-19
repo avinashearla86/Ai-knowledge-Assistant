@@ -60,10 +60,8 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
-    """Create embedding using updated 2026 model names"""
-    # 'gemini-embedding-001' is the stable standard for 2026
-    # 'text-embedding-004' is often moved or deprecated in v1beta
-    models_to_try = ['models/gemini-embedding-001', 'models/text-embedding-004']
+    """Create embedding using Gemini - 768 dimensions"""
+    models_to_try = ['models/text-embedding-004', 'models/embedding-001']
     
     for model_name in models_to_try:
         try:
