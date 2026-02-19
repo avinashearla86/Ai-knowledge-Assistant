@@ -1,19 +1,20 @@
 import os
 from typing import List
 from google import genai
-from google.genai import types  # REQUIRED for API versioning and truncation
 import fitz
 import docx
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from fastembed import TextEmbedding
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# 1. THE FIX: Force the SDK to use 'v1' instead of the buggy 'v1beta'
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY"),
-    http_options=types.HttpOptions(api_version="v1")
-)
+# 1. Chat Client (Google is still fine for text generation)
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# 2. Local Embedding Model (Bypasses Google's broken 404 API)
+# This uses ONNX, so it WILL NOT crash Render's memory!
+embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
 def extract_text_from_pdf(file_path: str) -> str:
     text = ""
@@ -23,7 +24,7 @@ def extract_text_from_pdf(file_path: str) -> str:
             text += page.get_text()
         doc.close()
     except Exception as e:
-        print(f"Error extracting text from PDF {file_path}: {e}")
+        print(f"Error extracting text from PDF: {e}")
     return text
 
 def extract_text_from_docx(file_path: str) -> str:
@@ -53,19 +54,16 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
+    """Generates 384-dimension vectors locally, avoiding Google 404 errors"""
     try:
-        # 2. THE FIX: The ACTUAL correct model name this time
-        response = client.models.embed_content(
-            model='gemini-embedding-001',
-            contents=text,
-            config=types.EmbedContentConfig(output_dimensionality=768)
-        )
-        embedding = response.embeddings[0].values
-        print(f"✅ Embedding success: {len(embedding)} dims")
-        return embedding
+        # FastEmbed requires a list of strings and returns a generator
+        embeddings_generator = embedding_model.embed([text])
+        embedding_list = list(embeddings_generator)[0].tolist()
+        print(f"✅ Local Embedding success: {len(embedding_list)} dims")
+        return embedding_list
     except Exception as e:
-        print(f"❌ Embedding failed: {e}")
-        raise Exception(f"Embedding API failed: {str(e)}")
+        print(f"❌ Local Embedding failed: {e}")
+        raise Exception(f"Embedding failed: {str(e)}")
 
 def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     from sqlalchemy import text
@@ -82,6 +80,7 @@ def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     return db.execute(query).fetchall()
 
 def generate_response_with_gemini(prompt: str) -> str:
+    """Chat requests still go to Google, which works fine."""
     models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
     for model_name in models_to_try:
         try:
@@ -95,7 +94,6 @@ def generate_response_with_gemini(prompt: str) -> str:
                 print(f"Quota exhausted for {model_name}, trying next...")
                 continue
             if "404" in str(e):
-                print(f"Model {model_name} not found, skipping...")
                 continue
             raise e
     return "I am currently at my free tier capacity. Please wait a few minutes before trying again."
