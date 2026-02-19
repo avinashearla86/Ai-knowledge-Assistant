@@ -60,28 +60,45 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
-    """Create embedding using Gemini REST API directly (bypasses SDK version issues)"""
+    """Create embedding using Gemini REST API directly with verified 2026 models"""
     import requests
     
     api_key = os.getenv("GEMINI_API_KEY")
-    url = f"https://generativelanguage.googleapis.com/v1/models/text-embedding-004:embedContent?key={api_key}"
     
-    payload = {
-        "model": "models/text-embedding-004",
-        "content": {
-            "parts": [{"text": text}]
+    # In v1, the model name 'text-embedding-004' is supported, 
+    # but the URL structure is very specific. 
+    # We will also add a fallback to 'embedding-001'.
+    
+    models_to_try = ["text-embedding-004", "embedding-001"]
+    
+    for model_name in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:embedContent?key={api_key}"
+        
+        payload = {
+            "model": f"models/{model_name}",
+            "content": {
+                "parts": [{"text": text}]
+            }
         }
-    }
-    
-    response = requests.post(url, json=payload)
-    
-    if response.status_code == 200:
-        embedding = response.json()["embedding"]["values"]
-        print(f"✅ Embedding success: {len(embedding)} dims")
-        return embedding
-    else:
-        print(f"❌ Embedding failed: {response.status_code} {response.text}")
-        raise Exception(f"Embedding API failed: {response.text}")
+        
+        try:
+            response = requests.post(url, json=payload, timeout=15)
+            
+            if response.status_code == 200:
+                embedding = response.json()["embedding"]["values"]
+                print(f"✅ Embedding success using {model_name}: {len(embedding)} dims")
+                return embedding
+            else:
+                print(f"⚠️ Failed with {model_name}: {response.status_code} - {response.text}")
+                continue # Try the next model in the list
+                
+        except Exception as e:
+            print(f"⚠️ Request error with {model_name}: {e}")
+            continue
+            
+    # If all models fail, we MUST raise an exception so the main.py knows 
+    # the upload failed and can clean up the database.
+    raise Exception("Critical Error: All Gemini embedding models failed.")
 
 def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     """Search for similar chunks using cosine similarity"""
