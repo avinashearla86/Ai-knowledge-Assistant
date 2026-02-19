@@ -60,22 +60,19 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
-    """Create embedding using Gemini - 768 dimensions"""
-    models_to_try = ['models/text-embedding-004', 'models/embedding-001']
-    
-    for model_name in models_to_try:
-        try:
-            response = client.models.embed_content(
-                model=model_name,
-                contents=text
-            )
-            return response.embeddings[0].values
-        except Exception as e:
-            print(f"Failed to use {model_name}: {e}")
-            continue
-            
-    print("All embedding models failed. Returning zero vector.")
-    return [0.0] * 768
+    """Create embedding using Gemini text-embedding-004 (768 dims)"""
+    try:
+        response = client.models.embed_content(
+            model='models/text-embedding-004',
+            contents=text
+        )
+        embedding = response.embeddings[0].values
+        print(f"✅ Embedding created: {len(embedding)} dimensions")
+        return embedding
+    except Exception as e:
+        print(f"❌ Embedding FAILED: {e}")
+        # Don't silently return zeros - raise so we know it failed
+        raise e
 
 def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     """Search for similar chunks using cosine similarity"""
