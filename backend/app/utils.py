@@ -60,26 +60,28 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     return text_splitter.split_text(text)
 
 def create_embedding(text: str) -> List[float]:
-    """Create embedding using Gemini (768 dims)"""
-    models_to_try = [
-        'text-embedding-004',
-        'embedding-001',
-    ]
+    """Create embedding using Gemini REST API directly (bypasses SDK version issues)"""
+    import requests
     
-    for model_name in models_to_try:
-        try:
-            response = client.models.embed_content(
-                model=model_name,
-                contents=text
-            )
-            embedding = response.embeddings[0].values
-            print(f"✅ Embedding success with {model_name}: {len(embedding)} dims")
-            return embedding
-        except Exception as e:
-            print(f"❌ Failed {model_name}: {e}")
-            continue
-            
-    raise Exception("All embedding models failed - check Render logs")
+    api_key = os.getenv("GEMINI_API_KEY")
+    url = f"https://generativelanguage.googleapis.com/v1/models/text-embedding-004:embedContent?key={api_key}"
+    
+    payload = {
+        "model": "models/text-embedding-004",
+        "content": {
+            "parts": [{"text": text}]
+        }
+    }
+    
+    response = requests.post(url, json=payload)
+    
+    if response.status_code == 200:
+        embedding = response.json()["embedding"]["values"]
+        print(f"✅ Embedding success: {len(embedding)} dims")
+        return embedding
+    else:
+        print(f"❌ Embedding failed: {response.status_code} {response.text}")
+        raise Exception(f"Embedding API failed: {response.text}")
 
 def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
     """Search for similar chunks using cosine similarity"""
