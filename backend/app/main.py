@@ -159,18 +159,18 @@ async def chat(request: schemas.ChatRequest, db: Session = Depends(get_db)):
                 "sources": []
             }
         
-        query_embedding = utils.create_embedding(request.message)
-        similar_chunks = utils.cosine_similarity_search(query_embedding, db, limit=20)
+        query_embedding = utils.create_embedding(request.message, is_query=True)
+        similar_chunks = utils.cosine_similarity_search(query_embedding, db, limit=50)
         
         context = ""
         sources = []
         
         if similar_chunks:
-            relevant_chunks = [chunk for chunk in similar_chunks if chunk.similarity > 0.005]
+            relevant_chunks = [chunk for chunk in similar_chunks if chunk.similarity > 0.35]
             if relevant_chunks:
                 context = f"You have exactly {len(active_documents)} active documents available.\n"
                 context += "Context from your active documents:\n\n"
-                for chunk in relevant_chunks[:10]:
+                for chunk in similar_chunks[:20]:
                     doc = crud.get_document(db, chunk.document_id)
                     if doc and not doc.is_deleted:
                         context += f"From '{doc.filename}':\n{chunk.chunk_text}\n\n"

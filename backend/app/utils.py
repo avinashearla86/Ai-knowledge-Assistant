@@ -53,19 +53,17 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
     )
     return text_splitter.split_text(text)
 
-def create_embedding(text: str) -> List[float]:
-    """Generates 384-dimension vectors locally, avoiding Google 404 errors"""
+def create_embedding(text: str, is_query: bool = False) -> List[float]:
+    """Generates 384-dim vectors. BGE models need a query prefix for retrieval."""
+    if is_query:
+        text = f"Represent this sentence for searching relevant passages: {text}"
     try:
-        # FastEmbed requires a list of strings and returns a generator
         embeddings_generator = embedding_model.embed([text])
-        embedding_list = list(embeddings_generator)[0].tolist()
-        print(f"✅ Local Embedding success: {len(embedding_list)} dims")
-        return embedding_list
+        return list(embeddings_generator)[0].tolist()
     except Exception as e:
-        print(f"❌ Local Embedding failed: {e}")
         raise Exception(f"Embedding failed: {str(e)}")
 
-def cosine_similarity_search(query_embedding: List[float], db, limit: int = 5):
+def cosine_similarity_search(query_embedding: List[float], db, limit: int = 50):
     from sqlalchemy import text
     embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
     query = text(f"""
